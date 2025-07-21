@@ -29,6 +29,8 @@ set(SOURCES "audio/audio_codec.cc"
             "protocols/protocol.cc"
             "protocols/mqtt_protocol.cc"
             "protocols/websocket_protocol.cc"
+            "iot/thing.cc"
+            "iot/thing_manager.cc"
             "mcp_server.cc"
             "system_info.cc"
             "application.cc"
@@ -61,6 +63,12 @@ list(APPEND SOURCES
     "boards/common/sy6970.cc"
     "boards/common/system_reset.cc"
 )
+
+# 添加 IOT 相关文件
+file(GLOB IOT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/iot/things/*.cc)
+list(APPEND SOURCES ${IOT_SOURCES})
+
+# 添加板级公共文件
 list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/boards/common)
 
 
