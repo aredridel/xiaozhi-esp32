@@ -1,23 +1,22 @@
-#include "wifi_board.h"
-#include "codecs/es8311_audio_codec.h"
-#include "display/lcd_display.h"
-#include "system_reset.h"
 #include <font_awesome.h>
 #include "application.h"
-#include "button.h"
-#include "config.h"
-#include "iot/thing_manager.h"
 #include "assets/lang_config.h"
+#include "button.h"
+#include "codecs/es8311_audio_codec.h"
+#include "config.h"
+#include "display/lcd_display.h"
 #include "led/single_led.h"
+#include "system_reset.h"
+#include "wifi_board.h"
 
-#include "power_manager.h"
-#include "power_save_timer.h"
-#include <wifi_manager.h>
-#include <esp_log.h>
-#include <esp_sleep.h>
-#include <esp_lcd_panel_vendor.h>
 #include <driver/i2c_master.h>
 #include <driver/spi_common.h>
+#include <esp_lcd_panel_vendor.h>
+#include <esp_log.h>
+#include <esp_sleep.h>
+#include <wifi_manager.h>
+#include "power_manager.h"
+#include "power_save_timer.h"
 
 #define TAG "lc-s3-wifi-1.54tft"
 
@@ -174,18 +173,9 @@ private:
         esp_lcd_panel_init(panel);
         esp_lcd_panel_invert_color(panel, true);
         esp_lcd_panel_disp_on_off(panel, true);
-        display_ = new SpiLcdDisplay(panel_io, panel,
-                                    DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
-    }
-
-    // 物联网初始化，添加对 AI 可见设备
-    void InitializeIot() {
-        auto& thing_manager = iot::ThingManager::GetInstance();
-        thing_manager.AddThing(iot::CreateThing("Speaker"));
-        thing_manager.AddThing(iot::CreateThing("Screen"));
-        thing_manager.AddThing(iot::CreateThing("Battery"));
-        thing_manager.AddThing(iot::CreateThing("Relay"));
-        //在此扩展IOT设备
+        display_ = new SpiLcdDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT,
+                                     DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X,
+                                     DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
 
 public:
@@ -200,7 +190,6 @@ public:
         InitializeSpi();
         InitializeDisplay();
         InitializeButtons();
-        InitializeIot();
         GetBacklight()->SetBrightness(70);
     }
 
