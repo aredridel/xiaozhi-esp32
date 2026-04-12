@@ -11,8 +11,10 @@
 #include "led/single_led.h"
 
 #include "power_manager.h"
+#include "power_save_timer.h"
 #include <wifi_manager.h>
 #include <esp_log.h>
+#include <esp_sleep.h>
 #include <esp_lcd_panel_vendor.h>
 #include <driver/i2c_master.h>
 #include <driver/spi_common.h>
@@ -29,19 +31,42 @@ private:
     Button volume_down_button_;
     Button boot_button_;
     PowerManager* power_manager_;
+    PowerSaveTimer* power_save_timer_;
     Display* display_;
+    esp_lcd_panel_io_handle_t panel_io = nullptr;
+    esp_lcd_panel_handle_t panel = nullptr;
+
     //电源管理初始化
     void InitializePowerManager() {
         power_manager_ = new PowerManager(GPIO_NUM_38);
         power_manager_->OnChargingStatusChanged([this](bool is_charging) {
             if (is_charging) {
-                //power_save_timer_->SetEnabled(false);
+                power_save_timer_->SetEnabled(false);
             } else {
-                //power_save_timer_->SetEnabled(true);
+                power_save_timer_->SetEnabled(true);
             }
         });
     }
     
+    void InitializePowerSaveTimer() {
+        power_save_timer_ = new PowerSaveTimer(-1, 60, 300);
+        power_save_timer_->OnEnterSleepMode([this]() {
+            GetDisplay()->SetPowerSaveMode(true);
+            GetBacklight()->SetBrightness(1);
+        });
+        power_save_timer_->OnExitSleepMode([this]() {
+            GetDisplay()->SetPowerSaveMode(false);
+            GetBacklight()->RestoreBrightness();
+        });
+        power_save_timer_->OnShutdownRequest([this]() {
+            ESP_LOGI(TAG, "Shutting down");
+            esp_lcd_panel_disp_on_off(panel, false);  // 关闭显示
+            //rtc_gpio_set_level(POWER_CONTROL_PIN, 0);
+            //rtc_gpio_hold_dis(POWER_CONTROL_PIN);
+            esp_deep_sleep_start();
+        });
+        power_save_timer_->SetEnabled(true);
+    }
     
     //i2c初始化，音频ES8311
     void InitializeI2c() {
@@ -83,6 +108,14 @@ private:
             }
             app.ToggleChatState();
         });
+
+        boot_button_.OnLongPress([this]() {
+            power_save_timer_->WakeUp();
+            auto& app = Application::GetInstance();
+            app.SetDeviceState(kDeviceStateWifiConfiguring);
+            EnterWifiConfigMode();
+        });
+
         volume_up_button_.OnClick([this]() {
             auto codec = GetAudioCodec();
             auto volume = codec->output_volume() + 10;
@@ -116,15 +149,12 @@ private:
 
     //显示屏初始化
     void InitializeDisplay() {
-        esp_lcd_panel_io_handle_t panel_io = nullptr;
-        esp_lcd_panel_handle_t panel = nullptr;
-
         // 液晶屏控制IO初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = DISPLAY_CS_GPIO;
         io_config.dc_gpio_num = DISPLAY_DC_GPIO;
-        io_config.spi_mode = 0;
+        io_config.spi_mode = DISPLAY_SPI_MODE;
         io_config.pclk_hz = 40 * 1000 * 1000;
         io_config.trans_queue_depth = 10;
         io_config.lcd_cmd_bits = 8;
@@ -165,6 +195,7 @@ public:
         volume_down_button_(VOLUME_DOWN_BUTTON_GPIO),
         boot_button_(BOOT_BUTTON_GPIO) {
         InitializePowerManager();
+        InitializePowerSaveTimer();
         InitializeI2c();
         InitializeSpi();
         InitializeDisplay();
@@ -204,7 +235,7 @@ public:
         charging = power_manager_->IsCharging();
         discharging = power_manager_->IsDischarging();
         if (discharging != last_discharging) {
-            //power_save_timer_->SetEnabled(discharging);
+            power_save_timer_->SetEnabled(discharging);
             last_discharging = discharging;
         }
         level = power_manager_->GetBatteryLevel();
