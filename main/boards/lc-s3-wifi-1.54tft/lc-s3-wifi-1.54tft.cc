@@ -35,7 +35,7 @@ private:
     esp_lcd_panel_io_handle_t panel_io = nullptr;
     esp_lcd_panel_handle_t panel = nullptr;
 
-    //电源管理初始化
+    // 电源管理初始化
     void InitializePowerManager() {
         power_manager_ = new PowerManager(GPIO_NUM_38);
         power_manager_->OnChargingStatusChanged([this](bool is_charging) {
@@ -60,14 +60,14 @@ private:
         power_save_timer_->OnShutdownRequest([this]() {
             ESP_LOGI(TAG, "Shutting down");
             esp_lcd_panel_disp_on_off(panel, false);  // 关闭显示
-            //rtc_gpio_set_level(POWER_CONTROL_PIN, 0);
-            //rtc_gpio_hold_dis(POWER_CONTROL_PIN);
+            // rtc_gpio_set_level(POWER_CONTROL_PIN, 0);
+            // rtc_gpio_hold_dis(POWER_CONTROL_PIN);
             esp_deep_sleep_start();
         });
         power_save_timer_->SetEnabled(true);
     }
-    
-    //i2c初始化，音频ES8311
+
+    // i2c初始化，音频ES8311
     void InitializeI2c() {
         // Initialize I2C peripheral
         i2c_master_bus_config_t i2c_bus_cfg = {
@@ -78,14 +78,15 @@ private:
             .glitch_ignore_cnt = 7,
             .intr_priority = 0,
             .trans_queue_depth = 0,
-            .flags = {
-                .enable_internal_pullup = 1,
-            },
+            .flags =
+                {
+                    .enable_internal_pullup = 1,
+                },
         };
         ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
     }
 
-    //SPI初始化，显示屏
+    // SPI初始化，显示屏
     void InitializeSpi() {
         spi_bus_config_t buscfg = {};
         buscfg.mosi_io_num = DISPLAY_MOSI_GPIO;
@@ -97,11 +98,12 @@ private:
         ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
     }
 
-    //按钮初始化
+    // 按钮初始化
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
-            if (app.GetDeviceState() == kDeviceStateStarting && !WifiManager::GetInstance().IsConnected()) {
+            if (app.GetDeviceState() == kDeviceStateStarting &&
+                !WifiManager::GetInstance().IsConnected()) {
                 EnterWifiConfigMode();
                 return;
             }
@@ -146,7 +148,7 @@ private:
         });
     }
 
-    //显示屏初始化
+    // 显示屏初始化
     void InitializeDisplay() {
         // 液晶屏控制IO初始化
         ESP_LOGD(TAG, "Install panel IO");
@@ -168,7 +170,7 @@ private:
         panel_config.rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB;
         panel_config.bits_per_pixel = 16;
         ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(panel_io, &panel_config, &panel));
-        
+
         esp_lcd_panel_reset(panel);
         esp_lcd_panel_init(panel);
         esp_lcd_panel_invert_color(panel, true);
@@ -179,11 +181,11 @@ private:
     }
 
 public:
-    //构造函数
-    lc_s3_wifi_1_54tft() : 
-        volume_up_button_(VOLUME_UP_BUTTON_GPIO),
-        volume_down_button_(VOLUME_DOWN_BUTTON_GPIO),
-        boot_button_(BOOT_BUTTON_GPIO) {
+    // 构造函数
+    lc_s3_wifi_1_54tft()
+        : volume_up_button_(VOLUME_UP_BUTTON_GPIO),
+          volume_down_button_(VOLUME_DOWN_BUTTON_GPIO),
+          boot_button_(BOOT_BUTTON_GPIO) {
         InitializePowerManager();
         InitializePowerSaveTimer();
         InitializeI2c();
@@ -193,32 +195,22 @@ public:
         GetBacklight()->SetBrightness(70);
     }
 
-    //获取音频编码器
+    // 获取音频编码器
     virtual AudioCodec* GetAudioCodec() override {
-         static Es8311AudioCodec audio_codec(
-            i2c_bus_, 
-            I2C_NUM_0, 
-            AUDIO_INPUT_SAMPLE_RATE, 
-            AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, 
-            AUDIO_I2S_GPIO_BCLK, 
-            AUDIO_I2S_GPIO_WS, 
-            AUDIO_I2S_GPIO_DOUT, 
-            AUDIO_I2S_GPIO_DIN,
-            AUDIO_CODEC_PA_PIN, 
-            AUDIO_CODEC_ES8311_ADDR);
+        static Es8311AudioCodec audio_codec(
+            i2c_bus_, I2C_NUM_0, AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
+            AUDIO_I2S_GPIO_MCLK, AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS, AUDIO_I2S_GPIO_DOUT,
+            AUDIO_I2S_GPIO_DIN, AUDIO_CODEC_PA_PIN, AUDIO_CODEC_ES8311_ADDR);
         return &audio_codec;
     }
 
-    virtual Display* GetDisplay() override {
-        return display_;
-    }
+    virtual Display* GetDisplay() override { return display_; }
 
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;
     }
-    
+
     virtual bool GetBatteryLevel(int& level, bool& charging, bool& discharging) override {
         static bool last_discharging = false;
         charging = power_manager_->IsCharging();
